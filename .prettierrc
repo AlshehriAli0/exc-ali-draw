@@ -3,6 +3,6 @@
     "tabWidth": 4,
     "semi": true,
     "singleQuote": false,
-    "printWidth": 110,
+    "printWidth": 120,
     "plugins": ["prettier-plugin-tailwindcss", "prettier-plugin-organize-imports"]
 }

@@ -22,7 +22,7 @@ export const useHistory = (initialHistory: Line[]) => {
     };
 
     const redo = () => {
-        if (undoHistory.length > 0) {
+        if (undoHistory.length > 0 && history.length > 0) {
             setHistory((prev) => [...prev, undoHistory[undoHistory.length - 1]]);
             setUndoHistory((prev) => prev.slice(0, -1));
         }

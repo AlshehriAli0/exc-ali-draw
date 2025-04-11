@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import "./App.css";
-import { KEYS } from "./constants";
 import { useHistory } from "./hooks/use-history";
 import { useInitCanvas } from "./hooks/use-init-canvas";
-import useKeyPress from "./hooks/use-key-press";
+import { useKeyboardShortcut } from "./hooks/use-shortcut";
 import { clearCanvas } from "./utils/clear-canvas";
 import { drawLine } from "./utils/draw/line";
 
@@ -16,13 +15,9 @@ function App() {
     const { canvasRef, rcRef } = useInitCanvas();
     const { history, push, undo, redo } = useHistory([]);
 
-    useKeyPress(KEYS.ARROW_LEFT, () => {
-        undo();
-    });
-
-    useKeyPress(KEYS.ARROW_RIGHT, () => {
-        redo();
-    });
+    useKeyboardShortcut(redo, { code: "KeyZ", shiftKey: true, metaKey: true }); // for mac
+    useKeyboardShortcut(redo, { code: "KeyY", ctrlKey: true }); // for windows
+    useKeyboardShortcut(undo, { code: "KeyZ", metaKey: true });
 
     const redrawLines = () => {
         clearCanvas(canvasRef);
