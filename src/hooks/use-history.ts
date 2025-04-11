@@ -1,18 +1,20 @@
 import { useState } from "react";
+import { ElementType } from "../types/element";
 
-type Line = {
-    start: { x: number; y: number };
-    end: { x: number; y: number };
-    element?: SVGElement | null;
+export type History = {
+    history: ElementType[];
+    push: (element: ElementType) => void;
+    undo: () => void;
+    redo: () => void;
 };
 
-export const useHistory = (initialHistory: Line[]) => {
-    const [history, setHistory] = useState<Line[]>(initialHistory);
-    const [undoHistory, setUndoHistory] = useState<Line[]>([]);
+export const useHistory = (initialHistory: ElementType[]): History => {
+    const [history, setHistory] = useState<ElementType[]>(initialHistory);
+    const [undoHistory, setUndoHistory] = useState<ElementType[]>([]);
     const lastItem = history[history.length - 1];
 
-    const push = (line: Line) => {
-        setHistory((prev) => [...prev, line]);
+    const push = (element: ElementType) => {
+        setHistory((prev) => [...prev, element]);
         setUndoHistory([]);
     };
 

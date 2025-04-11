@@ -3,37 +3,47 @@ import "./App.css";
 import { useHistory } from "./hooks/use-history";
 import { useInitCanvas } from "./hooks/use-init-canvas";
 import { useKeyboardShortcut } from "./hooks/use-shortcut";
+import { Tools } from "./types/element";
 import { clearCanvas } from "./utils/clear-canvas";
 import { drawLine } from "./utils/draw/line";
 
 function App() {
     const [isDrawing, setIsDrawing] = useState(false);
-    const [startPosition, setStartPosition] = useState({ x: 0, y: 0 });
+    const [startLinePosition, setStartLinePosition] = useState({ x: 0, y: 0 });
+    const [startFreePosition, setStartFreePosition] = useState({ x: 0, y: 0 });
 
-    const [mode, setMode] = useState<"line" | "circle" | "rectangle" | "free">("line");
+    const [mode, setMode] = useState<Tools>("line");
 
     const { canvasRef, rcRef } = useInitCanvas();
     const { history, push, undo, redo } = useHistory([]);
 
+    // listen to keyboard shortcuts
     useKeyboardShortcut(redo, { code: "KeyZ", shiftKey: true, metaKey: true }); // for mac
-    useKeyboardShortcut(redo, { code: "KeyY", ctrlKey: true }); // for windows
     useKeyboardShortcut(undo, { code: "KeyZ", metaKey: true });
+
+    useKeyboardShortcut(undo, { code: "KeyZ", ctrlKey: true }); // for windows
+    useKeyboardShortcut(redo, { code: "KeyY", ctrlKey: true });
+
+    useKeyboardShortcut(() => setMode("line"), { code: "Digit1" });
+    useKeyboardShortcut(() => setMode("circle"), { code: "Digit2" });
+    useKeyboardShortcut(() => setMode("rectangle"), { code: "Digit3" });
+    useKeyboardShortcut(() => setMode("free"), { code: "Digit4" });
 
     const redrawLines = () => {
         clearCanvas(canvasRef);
 
         history.forEach((line) => {
             // if element is stored, draw it else generate it
-            if (line.element) {
+            if (line.roughElement) {
                 const canvas = canvasRef.current;
                 if (canvas) {
                     const ctx = canvas.getContext("2d");
                     if (ctx && rcRef.current) {
-                        rcRef.current.draw(line.element);
+                        rcRef.current.draw(line.roughElement);
                     }
                 }
             } else {
-                drawLine(rcRef, line.start, line.end);
+                drawLine(rcRef, { x: line.x1, y: line.y1 }, { x: line.x2, y: line.y2 });
             }
         });
     };
@@ -42,11 +52,31 @@ function App() {
         if (isDrawing && mode === "line") {
             const endPos = { x: e.clientX, y: e.clientY };
 
-            const drawnElement = drawLine(rcRef, startPosition, endPos);
+            const drawnElement = drawLine(rcRef, startLinePosition, endPos);
             push({
-                start: startPosition,
-                end: endPos,
-                element: drawnElement,
+                id: history.length + 1,
+                x1: startLinePosition.x,
+                y1: startLinePosition.y,
+                x2: endPos.x,
+                y2: endPos.y,
+                type: "line",
+                roughElement: drawnElement,
+            });
+        }
+    };
+
+    const saveFree = (e: React.MouseEvent<HTMLCanvasElement>) => {
+        if (isDrawing && mode === "free") {
+            const endPos = { x: e.clientX, y: e.clientY };
+            const drawnElement = drawLine(rcRef, startFreePosition, endPos);
+            push({
+                id: history.length + 1,
+                x1: startFreePosition.x,
+                y1: startFreePosition.y,
+                x2: endPos.x,
+                y2: endPos.y,
+                type: "free",
+                roughElement: drawnElement,
             });
         }
     };
@@ -65,7 +95,10 @@ function App() {
             // Clear canvas, redraw existing lines, and add preview line
             clearCanvas(canvasRef);
             redrawLines();
-            drawLine(rcRef, startPosition, { x: clientX, y: clientY });
+            drawLine(rcRef, startLinePosition, { x: clientX, y: clientY });
+        } else if (mode === "free") {
+            drawLine(rcRef, startFreePosition, { x: clientX, y: clientY });
+            setStartFreePosition({ x: clientX, y: clientY });
         }
     };
 
@@ -81,10 +114,12 @@ function App() {
                     onMouseDown={(e) => {
                         setIsDrawing(true);
                         const pos = { x: e.clientX, y: e.clientY };
-                        setStartPosition(pos);
+                        setStartLinePosition(pos);
+                        setStartFreePosition({ x: e.clientX, y: e.clientY });
                     }}
                     onMouseUp={(e) => {
                         saveLine(e);
+                        saveFree(e);
                         setIsDrawing(false);
                     }}
                     onMouseMove={handleMouseMove}
