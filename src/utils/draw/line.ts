@@ -6,10 +6,12 @@ export const drawLine = (
     end: { x: number; y: number }
 ) => {
     if (rcRef.current) {
-        rcRef.current.line(start.x, start.y, end.x, end.y, {
+        const line = rcRef.current.line(start.x, start.y, end.x, end.y, {
             stroke: "#000",
             strokeWidth: 2,
             roughness: 1,
         });
+        return line;
     }
+    return null;
 };

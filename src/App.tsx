@@ -13,7 +13,8 @@ function App() {
 
     const [mode, setMode] = useState<"line" | "circle" | "rectangle" | "free">("line");
 
-    const { history, addLine, undo, redo } = useHistory([]);
+    const { canvasRef, rcRef } = useInitCanvas();
+    const { history, push, undo, redo } = useHistory([]);
 
     useKeyPress(KEYS.ARROW_LEFT, () => {
         undo();
@@ -23,16 +24,36 @@ function App() {
         redo();
     });
 
-    const { canvasRef, rcRef } = useInitCanvas();
-
-    // Redraw all stored lines
     const redrawLines = () => {
         clearCanvas(canvasRef);
 
-        // Draw all completed lines
         history.forEach((line) => {
-            drawLine(rcRef, line.start, line.end);
+            // if element is stored, draw it else generate it
+            if (line.element) {
+                const canvas = canvasRef.current;
+                if (canvas) {
+                    const ctx = canvas.getContext("2d");
+                    if (ctx && rcRef.current) {
+                        rcRef.current.draw(line.element);
+                    }
+                }
+            } else {
+                drawLine(rcRef, line.start, line.end);
+            }
         });
+    };
+
+    const saveLine = (e: React.MouseEvent<HTMLCanvasElement>) => {
+        if (isDrawing && mode === "line") {
+            const endPos = { x: e.clientX, y: e.clientY };
+
+            const drawnElement = drawLine(rcRef, startPosition, endPos);
+            push({
+                start: startPosition,
+                end: endPos,
+                element: drawnElement,
+            });
+        }
     };
 
     useEffect(() => {
@@ -68,17 +89,7 @@ function App() {
                         setStartPosition(pos);
                     }}
                     onMouseUp={(e) => {
-                        if (isDrawing && mode === "line") {
-                            const endPos = { x: e.clientX, y: e.clientY };
-
-                            // Add the new line to history
-                            addLine({ start: startPosition, end: endPos });
-
-                            // Redraw all lines including the new one
-                            clearCanvas(canvasRef);
-                            redrawLines();
-                            drawLine(rcRef, startPosition, endPos);
-                        }
+                        saveLine(e);
                         setIsDrawing(false);
                     }}
                     onMouseMove={handleMouseMove}

@@ -3,6 +3,7 @@ import { useState } from "react";
 type Line = {
     start: { x: number; y: number };
     end: { x: number; y: number };
+    element?: SVGElement | null;
 };
 
 export const useHistory = (initialHistory: Line[]) => {
@@ -10,7 +11,7 @@ export const useHistory = (initialHistory: Line[]) => {
     const [undoHistory, setUndoHistory] = useState<Line[]>([]);
     const lastItem = history[history.length - 1];
 
-    const addLine = (line: Line) => {
+    const push = (line: Line) => {
         setHistory((prev) => [...prev, line]);
         setUndoHistory([]);
     };
@@ -27,5 +28,5 @@ export const useHistory = (initialHistory: Line[]) => {
         }
     };
 
-    return { history, addLine, undo, redo };
+    return { history, push, undo, redo };
 };
