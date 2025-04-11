@@ -12,17 +12,19 @@ export const useHistory = (initialHistory: Line[]) => {
 
     const addLine = (line: Line) => {
         setHistory((prev) => [...prev, line]);
-        // setUndoHistory([]);
+        setUndoHistory([]);
     };
 
     const undo = () => {
-        setUndoHistory((prev) => [...prev, lastItem]);
         setHistory((prev) => prev.slice(0, -1));
+        setUndoHistory((prev) => [...prev, lastItem]);
     };
 
     const redo = () => {
-        setHistory((prev) => [...prev, ...undoHistory]);
-        setUndoHistory((prev) => prev.slice(0, -1));
+        if (undoHistory.length > 0) {
+            setHistory((prev) => [...prev, undoHistory[undoHistory.length - 1]]);
+            setUndoHistory((prev) => prev.slice(0, -1));
+        }
     };
 
     return { history, addLine, undo, redo };

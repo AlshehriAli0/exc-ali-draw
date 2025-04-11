@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
 import { KEYS } from "./constants";
 import { useHistory } from "./hooks/use-history";
@@ -34,6 +34,10 @@ function App() {
             drawLine(rcRef, line.start, line.end);
         });
     };
+
+    useEffect(() => {
+        redrawLines();
+    }, [history]);
 
     // Handle mouse movement for drawing
     const handleMouseMove = (mouseEvent: React.MouseEvent<HTMLCanvasElement>) => {
