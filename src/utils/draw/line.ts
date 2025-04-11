@@ -8,7 +8,7 @@ export const drawLine = (
     if (rcRef.current) {
         const line = rcRef.current.line(start.x, start.y, end.x, end.y, {
             stroke: "#000",
-            strokeWidth: 2,
+            strokeWidth: 3,
             roughness: 1,
         });
         return line;

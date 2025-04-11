@@ -5,12 +5,13 @@ import { useInitCanvas } from "./hooks/use-init-canvas";
 import { useKeyboardShortcut } from "./hooks/use-shortcut";
 import { Tools } from "./types/element";
 import { clearCanvas } from "./utils/clear-canvas";
+import { drawFree } from "./utils/draw/free";
 import { drawLine } from "./utils/draw/line";
-
 function App() {
     const [isDrawing, setIsDrawing] = useState(false);
     const [startLinePosition, setStartLinePosition] = useState({ x: 0, y: 0 });
     const [startFreePosition, setStartFreePosition] = useState({ x: 0, y: 0 });
+    const [freeDrawPoints, setFreeDrawPoints] = useState<{ x: number; y: number }[]>([]);
 
     const [mode, setMode] = useState<Tools>("line");
 
@@ -42,6 +43,14 @@ function App() {
                         rcRef.current.draw(line.roughElement);
                     }
                 }
+            } else if (line.type === "free") {
+                drawFree(canvasRef, {
+                    x1: line.x1,
+                    y1: line.y1,
+                    x2: line.x2,
+                    y2: line.y2,
+                    points: line.points,
+                });
             } else {
                 drawLine(rcRef, { x: line.x1, y: line.y1 }, { x: line.x2, y: line.y2 });
             }
@@ -65,19 +74,18 @@ function App() {
         }
     };
 
-    const saveFree = (e: React.MouseEvent<HTMLCanvasElement>) => {
-        if (isDrawing && mode === "free") {
-            const endPos = { x: e.clientX, y: e.clientY };
-            const drawnElement = drawLine(rcRef, startFreePosition, endPos);
+    const saveFree = () => {
+        if (freeDrawPoints.length > 1) {
             push({
                 id: history.length + 1,
-                x1: startFreePosition.x,
-                y1: startFreePosition.y,
-                x2: endPos.x,
-                y2: endPos.y,
+                x1: freeDrawPoints[0].x,
+                y1: freeDrawPoints[0].y,
+                x2: freeDrawPoints[freeDrawPoints.length - 1].x,
+                y2: freeDrawPoints[freeDrawPoints.length - 1].y,
                 type: "free",
-                roughElement: drawnElement,
+                points: [...freeDrawPoints],
             });
+            setFreeDrawPoints([]);
         }
     };
 
@@ -97,8 +105,16 @@ function App() {
             redrawLines();
             drawLine(rcRef, startLinePosition, { x: clientX, y: clientY });
         } else if (mode === "free") {
-            drawLine(rcRef, startFreePosition, { x: clientX, y: clientY });
-            setStartFreePosition({ x: clientX, y: clientY });
+            const lastPoint = { x: clientX, y: clientY };
+            setFreeDrawPoints((prev) => [...prev, lastPoint]);
+            drawFree(canvasRef, {
+                x1: startFreePosition.x,
+                y1: startFreePosition.y,
+                x2: clientX,
+                y2: clientY,
+                points: [...freeDrawPoints, lastPoint],
+            });
+            setStartFreePosition(lastPoint);
         }
     };
 
@@ -115,11 +131,17 @@ function App() {
                         setIsDrawing(true);
                         const pos = { x: e.clientX, y: e.clientY };
                         setStartLinePosition(pos);
-                        setStartFreePosition({ x: e.clientX, y: e.clientY });
+                        setStartFreePosition(pos);
+                        if (mode === "free") {
+                            setFreeDrawPoints([pos]);
+                        }
                     }}
                     onMouseUp={(e) => {
-                        saveLine(e);
-                        saveFree(e);
+                        if (mode === "line") {
+                            saveLine(e);
+                        } else if (mode === "free") {
+                            saveFree();
+                        }
                         setIsDrawing(false);
                     }}
                     onMouseMove={handleMouseMove}
