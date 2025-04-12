@@ -1,19 +1,26 @@
-import { useEffect, useState } from "react";
+import { useHistory } from "@/hooks/use-history";
+import { useInitCanvas } from "@/hooks/use-init-canvas";
+import { useKeyboardShortcut } from "@/hooks/use-shortcut";
+import type { Tools } from "@/types/element";
+import type { Point } from "@/types/point";
+import { clearCanvas } from "@/utils/clear-canvas";
+import { diffPoints } from "@/utils/diff-points";
+import { drawFree } from "@/utils/draw/free";
+import { drawLine } from "@/utils/draw/line";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import "./App.css";
-import { useHistory } from "./hooks/use-history";
-import { useInitCanvas } from "./hooks/use-init-canvas";
-import { useKeyboardShortcut } from "./hooks/use-shortcut";
-import { Tools } from "./types/element";
-import { clearCanvas } from "./utils/clear-canvas";
-import { drawFree } from "./utils/draw/free";
-import { drawLine } from "./utils/draw/line";
+import { addPoints } from "./utils/add-points";
+
 function App() {
+    const [offset, setOffset] = useState<Point>({ x: 0, y: 0 });
     const [isDrawing, setIsDrawing] = useState(false);
     const [startLinePosition, setStartLinePosition] = useState({ x: 0, y: 0 });
     const [startFreePosition, setStartFreePosition] = useState({ x: 0, y: 0 });
-    const [freeDrawPoints, setFreeDrawPoints] = useState<{ x: number; y: number }[]>([]);
 
-    const [mode, setMode] = useState<Tools>("line");
+    const [freeDrawPoints, setFreeDrawPoints] = useState<{ x: number; y: number }[]>([]);
+    const [mode, setMode] = useState<Tools>("pan");
+
+    const lastMousePositionRef = useRef<Point>({ x: 0, y: 0 });
 
     const { canvasRef, rcRef } = useInitCanvas();
     const { history, push, undo, redo } = useHistory([]);
@@ -29,6 +36,11 @@ function App() {
     useKeyboardShortcut(() => setMode("circle"), { code: "Digit2" });
     useKeyboardShortcut(() => setMode("rectangle"), { code: "Digit3" });
     useKeyboardShortcut(() => setMode("free"), { code: "Digit4" });
+    useKeyboardShortcut(() => setMode("pan"), { code: "Space" });
+
+    useEffect(() => {
+        redrawLines();
+    }, [history]);
 
     const redrawLines = () => {
         clearCanvas(canvasRef);
@@ -59,13 +71,24 @@ function App() {
 
     const saveLine = (e: React.MouseEvent<HTMLCanvasElement>) => {
         if (isDrawing && mode === "line") {
-            const endPos = { x: e.clientX, y: e.clientY };
+            const endPos = {
+                x: e.clientX - offset.x,
+                y: e.clientY - offset.y,
+            };
 
-            const drawnElement = drawLine(rcRef, startLinePosition, endPos);
+            const drawnElement = drawLine(
+                rcRef,
+                {
+                    x: startLinePosition.x - offset.x,
+                    y: startLinePosition.y - offset.y,
+                },
+                endPos
+            );
+
             push({
                 id: history.length + 1,
-                x1: startLinePosition.x,
-                y1: startLinePosition.y,
+                x1: startLinePosition.x - offset.x,
+                y1: startLinePosition.y - offset.y,
                 x2: endPos.x,
                 y2: endPos.y,
                 type: "line",
@@ -89,10 +112,6 @@ function App() {
         }
     };
 
-    useEffect(() => {
-        redrawLines();
-    }, [history]);
-
     // Handle mouse movement for drawing
     const handleMouseMove = (mouseEvent: React.MouseEvent<HTMLCanvasElement>) => {
         if (!isDrawing) return;
@@ -103,19 +122,60 @@ function App() {
             // Clear canvas, redraw existing lines, and add preview line
             clearCanvas(canvasRef);
             redrawLines();
-            drawLine(rcRef, startLinePosition, { x: clientX, y: clientY });
+            drawLine(
+                rcRef,
+                {
+                    x: startLinePosition.x - offset.x,
+                    y: startLinePosition.y - offset.y,
+                },
+                {
+                    x: clientX - offset.x,
+                    y: clientY - offset.y,
+                }
+            );
         } else if (mode === "free") {
-            const lastPoint = { x: clientX, y: clientY };
+            const lastPoint = {
+                x: clientX - offset.x,
+                y: clientY - offset.y,
+            };
             setFreeDrawPoints((prev) => [...prev, lastPoint]);
             drawFree(canvasRef, {
-                x1: startFreePosition.x,
-                y1: startFreePosition.y,
-                x2: clientX,
-                y2: clientY,
+                x1: startFreePosition.x - offset.x,
+                y1: startFreePosition.y - offset.y,
+                x2: lastPoint.x,
+                y2: lastPoint.y,
                 points: [...freeDrawPoints, lastPoint],
             });
-            setStartFreePosition(lastPoint);
+            setStartFreePosition({ x: clientX, y: clientY });
+        } else if (mode === "pan" && isDrawing) {
+            mouseMove(mouseEvent);
         }
+    };
+
+    useLayoutEffect(() => {
+        const canvas = canvasRef.current;
+        if (canvas) {
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+                // Reset the transform and clear
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                clearCanvas(canvasRef);
+
+                // Apply the new transform and redraw
+                ctx.translate(offset.x, offset.y);
+                redrawLines();
+            }
+        }
+    }, [offset]);
+
+    const mouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+        if (!isDrawing || mode !== "pan") return;
+
+        const currentPos = { x: e.pageX, y: e.pageY };
+        const diff = diffPoints(currentPos, lastMousePositionRef.current);
+        lastMousePositionRef.current = currentPos;
+
+        setOffset((prev) => addPoints(prev, diff));
     };
 
     return (
@@ -133,7 +193,15 @@ function App() {
                         setStartLinePosition(pos);
                         setStartFreePosition(pos);
                         if (mode === "free") {
-                            setFreeDrawPoints([pos]);
+                            setFreeDrawPoints([
+                                {
+                                    x: pos.x - offset.x,
+                                    y: pos.y - offset.y,
+                                },
+                            ]);
+                        } else if (mode === "pan") {
+                            lastMousePositionRef.current = { x: e.pageX, y: e.pageY };
+                            document.body.style.cursor = "grabbing";
                         }
                     }}
                     onMouseUp={(e) => {
@@ -141,6 +209,9 @@ function App() {
                             saveLine(e);
                         } else if (mode === "free") {
                             saveFree();
+                        } else if (mode === "pan") {
+                            lastMousePositionRef.current = { x: e.pageX, y: e.pageY };
+                            document.body.style.cursor = "default";
                         }
                         setIsDrawing(false);
                     }}

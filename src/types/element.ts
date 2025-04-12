@@ -1,4 +1,4 @@
-export type Tools = "line" | "circle" | "rectangle" | "free";
+export type Tools = "line" | "circle" | "rectangle" | "free" | "pan";
 
 export type ElementType = {
     id: number;
