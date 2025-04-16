@@ -36,3 +36,5 @@ export const KEYS = {
     F11: "F11",
     F12: "F12",
 } as const;
+
+export const ZOOM_SENSITIVITY = 500;

@@ -1,4 +1,8 @@
-export const clearCanvas = (canvasRef: React.RefObject<HTMLCanvasElement | null>, offset: { x: number; y: number }) => {
+export const clearCanvas = (
+    canvasRef: React.RefObject<HTMLCanvasElement | null>,
+    offset: { x: number; y: number },
+    scale: number
+) => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     if (ctx && canvas) {
@@ -7,5 +11,7 @@ export const clearCanvas = (canvasRef: React.RefObject<HTMLCanvasElement | null>
 
         // Apply the new transform and redraw
         ctx.translate(offset.x, offset.y);
+        ctx.scale(scale, scale);
+        ctx.translate(-offset.x, -offset.y);
     }
 };

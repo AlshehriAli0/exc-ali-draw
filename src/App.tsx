@@ -9,6 +9,7 @@ import { drawFree } from "@/utils/draw/free";
 import { drawLine } from "@/utils/draw/line";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import "./App.css";
+import { ZOOM_SENSITIVITY } from "./constants";
 import { addPoints } from "./utils/add-points";
 
 function App() {
@@ -45,7 +46,7 @@ function App() {
 
     // runs when panning
     const redrawLines = () => {
-        clearCanvas(canvasRef, offset);
+        clearCanvas(canvasRef, offset, scale);
         // TODO: make this more efficient
         history.forEach((line) => {
             // if element is stored, draw it else generate it
@@ -122,7 +123,7 @@ function App() {
 
         if (mode === "line") {
             // Clear canvas, redraw existing lines, and add preview line
-            clearCanvas(canvasRef, offset);
+            clearCanvas(canvasRef, offset, scale);
             redrawLines();
             drawLine(
                 rcRef,
@@ -194,6 +195,28 @@ function App() {
         setOffset((prev) => addPoints(prev, diff));
     };
 
+    const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
+        e.preventDefault();
+        const ctx = canvasRef.current?.getContext("2d");
+        if (!ctx) return;
+        // TODO: make this work
+        const { deltaY, clientX, clientY } = e;
+        const zoom = 1 - deltaY / ZOOM_SENSITIVITY;
+        const viewportTopLeftDelta = {
+            x: (clientX / scale) * (1 - 1 / zoom),
+            y: (clientY / scale) * (1 - 1 / zoom),
+        };
+        const newViewportTopLeft = addPoints(offset, viewportTopLeftDelta);
+
+        setOffset(newViewportTopLeft);
+        ctx.translate(offset.x, offset.y);
+        ctx.scale(scale, scale);
+        ctx.translate(-offset.x, -offset.y);
+
+        setScale(zoom * scale);
+        redrawLines();
+    };
+
     useLayoutEffect(() => {
         const canvas = canvasRef.current;
         if (canvas) {
@@ -201,10 +224,11 @@ function App() {
             if (ctx) {
                 // Reset the transform and clear
                 ctx.setTransform(1, 0, 0, 1, 0, 0);
-                clearCanvas(canvasRef, offset);
+                clearCanvas(canvasRef, offset, scale);
 
                 // Apply the new transform and redraw
                 ctx.translate(offset.x, offset.y);
+                ctx.scale(scale, scale);
                 redrawLines();
             }
         }
@@ -222,6 +246,7 @@ function App() {
                     onMouseDown={handleMouseDown}
                     onMouseUp={handleMouseUp}
                     onMouseMove={handleMouseMove}
+                    onWheel={handleWheel}
                 />
             </div>
         </main>
