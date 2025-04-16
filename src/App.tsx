@@ -13,6 +13,7 @@ import { addPoints } from "./utils/add-points";
 
 function App() {
     const [offset, setOffset] = useState<Point>({ x: 0, y: 0 });
+    const [scale, setScale] = useState(1);
     const [isDrawing, setIsDrawing] = useState(false);
     const [startLinePosition, setStartLinePosition] = useState({ x: 0, y: 0 });
     const [startFreePosition, setStartFreePosition] = useState({ x: 0, y: 0 });
@@ -42,9 +43,10 @@ function App() {
         redrawLines();
     }, [history]);
 
+    // runs when panning
     const redrawLines = () => {
-        clearCanvas(canvasRef);
-
+        clearCanvas(canvasRef, offset);
+        // TODO: make this more efficient
         history.forEach((line) => {
             // if element is stored, draw it else generate it
             if (line.roughElement) {
@@ -120,7 +122,7 @@ function App() {
 
         if (mode === "line") {
             // Clear canvas, redraw existing lines, and add preview line
-            clearCanvas(canvasRef);
+            clearCanvas(canvasRef, offset);
             redrawLines();
             drawLine(
                 rcRef,
@@ -152,21 +154,35 @@ function App() {
         }
     };
 
-    useLayoutEffect(() => {
-        const canvas = canvasRef.current;
-        if (canvas) {
-            const ctx = canvas.getContext("2d");
-            if (ctx) {
-                // Reset the transform and clear
-                ctx.setTransform(1, 0, 0, 1, 0, 0);
-                clearCanvas(canvasRef);
-
-                // Apply the new transform and redraw
-                ctx.translate(offset.x, offset.y);
-                redrawLines();
-            }
+    const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
+        if (mode === "line") {
+            saveLine(e);
+        } else if (mode === "free") {
+            saveFree();
+        } else if (mode === "pan") {
+            lastMousePositionRef.current = { x: e.pageX, y: e.pageY };
+            document.body.style.cursor = "default";
         }
-    }, [offset]);
+        setIsDrawing(false);
+    };
+
+    const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+        setIsDrawing(true);
+        const pos = { x: e.clientX, y: e.clientY };
+        setStartLinePosition(pos);
+        setStartFreePosition(pos);
+        if (mode === "free") {
+            setFreeDrawPoints([
+                {
+                    x: pos.x - offset.x,
+                    y: pos.y - offset.y,
+                },
+            ]);
+        } else if (mode === "pan") {
+            lastMousePositionRef.current = { x: e.pageX, y: e.pageY };
+            document.body.style.cursor = "grabbing";
+        }
+    };
 
     const mouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
         if (!isDrawing || mode !== "pan") return;
@@ -178,6 +194,22 @@ function App() {
         setOffset((prev) => addPoints(prev, diff));
     };
 
+    useLayoutEffect(() => {
+        const canvas = canvasRef.current;
+        if (canvas) {
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+                // Reset the transform and clear
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                clearCanvas(canvasRef, offset);
+
+                // Apply the new transform and redraw
+                ctx.translate(offset.x, offset.y);
+                redrawLines();
+            }
+        }
+    }, [offset]);
+
     return (
         <main className="flex items-center justify-center bg-gray-200">
             <div className="w-full h-full ">
@@ -187,34 +219,8 @@ function App() {
                     height={window.innerHeight}
                     id="canvas"
                     className="absolute top-0 left-0 z-10 bg-transparent"
-                    onMouseDown={(e) => {
-                        setIsDrawing(true);
-                        const pos = { x: e.clientX, y: e.clientY };
-                        setStartLinePosition(pos);
-                        setStartFreePosition(pos);
-                        if (mode === "free") {
-                            setFreeDrawPoints([
-                                {
-                                    x: pos.x - offset.x,
-                                    y: pos.y - offset.y,
-                                },
-                            ]);
-                        } else if (mode === "pan") {
-                            lastMousePositionRef.current = { x: e.pageX, y: e.pageY };
-                            document.body.style.cursor = "grabbing";
-                        }
-                    }}
-                    onMouseUp={(e) => {
-                        if (mode === "line") {
-                            saveLine(e);
-                        } else if (mode === "free") {
-                            saveFree();
-                        } else if (mode === "pan") {
-                            lastMousePositionRef.current = { x: e.pageX, y: e.pageY };
-                            document.body.style.cursor = "default";
-                        }
-                        setIsDrawing(false);
-                    }}
+                    onMouseDown={handleMouseDown}
+                    onMouseUp={handleMouseUp}
                     onMouseMove={handleMouseMove}
                 />
             </div>
